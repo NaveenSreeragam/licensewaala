@@ -1,0 +1,17 @@
+create type public.vehicle_type as enum ('car', 'scooter', 'motorcycle');
+create type public.experience_level as enum ('beginner', 'intermediate', 'advanced');
+create type public.event_severity as enum ('low', 'medium', 'high');
+create table public.profiles (id uuid primary key references auth.users(id) on delete cascade, display_name text, vehicle_type public.vehicle_type not null default 'car', experience_level public.experience_level not null default 'beginner', region text, created_at timestamptz not null default now());
+create table public.quiz_attempts (id uuid primary key default gen_random_uuid(), user_id uuid not null references auth.users(id) on delete cascade, quiz_type text not null, question_id text not null, selected_answer text, is_correct boolean not null, created_at timestamptz not null default now());
+create table public.simulator_sessions (id uuid primary key default gen_random_uuid(), user_id uuid not null references auth.users(id) on delete cascade, vehicle_type public.vehicle_type not null default 'car', manoeuvre text not null, duration_seconds integer not null default 0, score integer not null check (score between 0 and 100), report jsonb not null, created_at timestamptz not null default now());
+create table public.simulator_events (id uuid primary key default gen_random_uuid(), session_id uuid not null references public.simulator_sessions(id) on delete cascade, event_type text not null, severity public.event_severity not null, timestamp_seconds integer not null, location jsonb not null, detail text, created_at timestamptz not null default now());
+create table public.mistakes (id uuid primary key default gen_random_uuid(), user_id uuid not null references auth.users(id) on delete cascade, source text not null, mistake_type text not null, count integer not null default 1, last_seen_at timestamptz not null default now(), unique(user_id, source, mistake_type));
+create table public.coach_messages (id uuid primary key default gen_random_uuid(), user_id uuid not null references auth.users(id) on delete cascade, role text not null check (role in ('user','assistant')), content text not null, created_at timestamptz not null default now());
+alter table public.profiles enable row level security; alter table public.quiz_attempts enable row level security; alter table public.simulator_sessions enable row level security; alter table public.simulator_events enable row level security; alter table public.mistakes enable row level security; alter table public.coach_messages enable row level security;
+create policy "profiles own" on public.profiles for all using (auth.uid()=id) with check (auth.uid()=id);
+create policy "quizzes own" on public.quiz_attempts for all using (auth.uid()=user_id) with check (auth.uid()=user_id);
+create policy "sessions own" on public.simulator_sessions for all using (auth.uid()=user_id) with check (auth.uid()=user_id);
+create policy "events own" on public.simulator_events for all using (exists(select 1 from public.simulator_sessions s where s.id=session_id and s.user_id=auth.uid())) with check (exists(select 1 from public.simulator_sessions s where s.id=session_id and s.user_id=auth.uid()));
+create policy "mistakes own" on public.mistakes for all using (auth.uid()=user_id) with check (auth.uid()=user_id);
+create policy "messages own" on public.coach_messages for all using (auth.uid()=user_id) with check (auth.uid()=user_id);
+create index simulator_sessions_user_created on public.simulator_sessions(user_id,created_at desc);

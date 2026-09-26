@@ -1,0 +1,14 @@
+# Dependencies and generated build output
+node_modules/
+.next/
+out/
+
+# TypeScript / Next.js generated files
+*.tsbuildinfo
+next-env.d.ts
+
+# Local secrets and editor files
+.env.local
+.env*.local
+.vercel/
+.DS_Store
